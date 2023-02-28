@@ -19,8 +19,15 @@ file = CSV.File("data/Base Foil Section 0 bar.csv")
 x = filter(!ismissing,file["x centre line"])
 y = filter(!ismissing,file[" y centre line"])
 L = maximum(x)
-A = maximum(y/L)/0.7^2
+Amp = maximum(y/L)/0.7^2
 x = file["x points"]/L
 y = file["y points"]/L
-plot(x,abs.(y-A*d.(x)))
+plot(x,abs.(y-Amp*d.(x)),label="centered section")
+
+P0,P1,P2,P3 = [0,0],[0,0.1],[0.5,0.12],[1.,0.]
+scatter!(first.([P0,P1,P2,P3]),last.([P0,P1,P2,P3]),label="control points")
+A,B,C,D = P0,-3P0+3P1,3P0-6P1+3P2,-P0+3P1-3P2+P3
+curve(t) = A+B*t+C*t^2+D*t^3
+xy = curve.(0:0.01:1)
+plot!(first.(xy),last.(xy),label="cubic",ls=:dash)
 savefig("section shape.png")
