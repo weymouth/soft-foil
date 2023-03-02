@@ -1,6 +1,4 @@
-using Plots, CSV 
-
-d(x) = x<0.3 ? 0 : (x-0.3)^2
+using Plots, CSV
 
 plot(;xaxis="x/L",yaxis="y/L")
 for pressure in ["0","0.2","0.5","0.7"]
@@ -9,17 +7,19 @@ for pressure in ["0","0.2","0.5","0.7"]
     y = filter(!ismissing,file[" y centre line"])
     L = maximum(x)
     plot!(x/L,y/L,label=pressure*" bar")
-    x = 0:0.01:1
-    A = maximum(y/L)/0.7^2
-    plot!(x, A*d.(x), label="",ls=:dash)
 end
+x = 0:0.01:1
+d(x) = x<0.3 ? 0 : (x-0.3)^2/0.7^2
+plot!(x, 0d.(x), label="d/L=0",ls=:dash)
+plot!(x, 0.06d.(x), label="d/L=0.06",ls=:dash)
+plot!(x, 0.12d.(x), label="d/L=0.12",ls=:dash)
 savefig("centerline with fit.png")
 
 file = CSV.File("data/Base Foil Section 0 bar.csv")
 x = filter(!ismissing,file["x centre line"])
 y = filter(!ismissing,file[" y centre line"])
 L = maximum(x)
-Amp = maximum(y/L)/0.7^2
+Amp = maximum(y/L)
 x = file["x points"]/L
 y = file["y points"]/L
 plot(x,abs.(y-Amp*d.(x)),label="centered section")
