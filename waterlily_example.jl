@@ -11,20 +11,13 @@ function foil(L;Re=38e3)
     candidates(X) = union(0,1,find_zeros(t -> (X-curve(t))'*dcurve(t),0,1,naive=true,no_pts=3,xatol=0.01))
     function distance(X,t)
         V = X-curve(t)
-        s = sign([V[2],-V[1]]'*dcurve(t))
-        return s*√sum(abs2,V)
+        return copysign(√sum(abs2,V),[V[2],-V[1]]'*dcurve(t))
     end
     distance(X) = argmin(abs,distance(X,t) for t in candidates(X))
 
 	# Define body and simulation
 	body = AutoBody((x,t) -> distance(SVector(x[1]/L-1,abs(x[2]/L-0.5))))
     return Simulation((4L+2,L+2),[1,0],L;ν=L/Re,body)
-end
-
-function circle(radius=8;Re=250,n=10,m=6)
-    center, ν = radius*m/2, radius/Re
-    body = AutoBody((x,t)->√sum(abs2,x .- center) - radius)
-    Simulation((n*radius+2,m*radius+2), [1.,0.], radius; ν, body)
 end
 
 function plot_vorticity(sim)
@@ -34,8 +27,7 @@ function plot_vorticity(sim)
 			 aspect_ratio=:equal, legend=false, border=:none)
 end
 
-sim = foil(32);
+sim = foil(64);
 sim_step!(sim,10);
 plot_vorticity(sim)
-# contour(sim.flow.μ₀[:,:,1]',aspect_ratio=:equal, legend=false, border=:none)
-savefig("problems.png")
+savefig("flow.png")
