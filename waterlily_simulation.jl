@@ -8,7 +8,7 @@ function plot_vorticity(sim)
 			 aspect_ratio=:equal, legend=false, border=:none)
 end
 
-function foil(L;d=0,Re=38e3,U=1)
+function foil(L;d=0,Re=38e3,U=1,n=6,m=3)
 	# Define symmetric foil shape with cubic Bezier
     P0,P1,P2,P3 = SA[0,0],SA[0,0.1],SA[.5,0.12],SA[1.,0.]
     A,B,C,D = P0,-3P0+3P1,3P0-6P1+3P2,-P0+3P1-3P2+P3
@@ -25,25 +25,26 @@ function foil(L;d=0,Re=38e3,U=1)
     
     # Define pitching motion mapping
     ω = 2π*U/L # reduced frequency k=π
-    center = SA[1,1] # foil placement in domain
+    center = SA[1,m/2] # foil placement in domain
     pivot = SA[.1,0] # pitch location from center
     function map(x,t)
         α = 6π/180*cos(ω*t)
-        SA[cos(α) sin(α); -sin(α) cos(α)] * (x/L.-center-pivot) .+ pivot
+        SA[cos(α) sin(α); -sin(α) cos(α)]*(x/L-center-pivot) + pivot
     end
 
     # Define sdf to deflected foil and Simulation
     deflect(x) = max(0,x-0.3)^2/0.7^2
     sdf(x,t) = distance(SA[x[1],abs(x[2]+d*deflect(x[1]))])
-    Simulation((4L+2,2L+2),[U,0],L;ν=U*L/Re,body=AutoBody(sdf,map))
+    Simulation((n*L+2,m*L+2),[U,0],L;ν=U*L/Re,body=AutoBody(sdf,map))
 end
 
-sim = foil(256,d=0.12);
-sim_step!(sim,4,remeasure=true);
+sim = foil(128,d=0.06);
+sim_step!(sim,6,remeasure=true);
 plot_vorticity(sim)
-savefig("flow_d_12.png")
+savefig("flow.png")
 
-@gif for t ∈ 4:1/24:(6-1/24)
+time = sim_time(sim)
+@gif for t ∈ time:1/24:(time+2-1/24)
     sim_step!(sim,t,remeasure=true)
     plot_vorticity(sim)
 end
