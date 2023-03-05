@@ -1,8 +1,8 @@
 using WaterLily,Plots,Roots,StaticArrays
 
 function plot_vorticity(sim)
-    @inside sim.flow.σ[I] = sum(WaterLily.ϕ(i,CartesianIndex(I,i),sim.flow.μ₀) for i ∈ 1:2)/2
-    @inside sim.flow.σ[I] = WaterLily.curl(3, I, sim.flow.u)*sim.flow.σ[I]*sim.L / sim.U
+    body(I) = sum(WaterLily.ϕ(i,CartesianIndex(I,i),sim.flow.μ₀) for i ∈ 1:2)/2
+    @inside sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u) * body[I] * sim.L / sim.U
     contourf(sim.flow.σ',dpi=300,
 			 color=palette(:BuGn), clims=(-10, 10), linewidth=0,
 			 aspect_ratio=:equal, legend=false, border=:none)
@@ -15,15 +15,15 @@ function foil(L;d=0,Re=38e3,U=1,n=6,m=3)
     curve(t) = A+B*t+C*t^2+D*t^3
     dcurve(t) = B+2C*t+3D*t^2
 
-	# Find distance to the symmetric foil
+	# Signed distance to the symmetric foil
     candidates(X) = union(0,1,find_zeros(t -> (X-curve(t))'*dcurve(t),0,1,naive=true,no_pts=3,xatol=0.01))
     function distance(X,t)
         V = X-curve(t)
-        copysign(√sum(abs2,V),[V[2],-V[1]]'*dcurve(t))
+        copysign(√(V'*V),[V[2],-V[1]]'*dcurve(t))
     end
     distance(X) = L*argmin(abs, distance(X,t) for t in candidates(X))
     
-    # Define pitching motion mapping
+    # Pitching motion around the pivot
     ω = 2π*U/L # reduced frequency k=π
     center = SA[1,m/2] # foil placement in domain
     pivot = SA[.1,0] # pitch location from center
