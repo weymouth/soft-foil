@@ -1,12 +1,13 @@
-using WaterLily,Plots,Roots,StaticArrays
+using WaterLily,Plots,Roots,StaticArrays,ProperOrthogonalDecomposition,HDF5,Printf
 
-function plot_vorticity(sim)
+function get_omega!(sim)
     body(I) = sum(WaterLily.ϕ(i,CartesianIndex(I,i),sim.flow.μ₀) for i ∈ 1:2)/2
-    @inside sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u) * body[I] * sim.L / sim.U
-    contourf(sim.flow.σ',dpi=300,
-			 color=palette(:BuGn), clims=(-10, 10), linewidth=0,
-			 aspect_ratio=:equal, legend=false, border=:none)
+    @inside sim.flow.σ[I] = WaterLily.curl(3,I,sim.flow.u) * body(I) * sim.L / sim.U
 end
+
+plot_vorticity(ω; level=maximum(abs,ω)) =contourf(ω',dpi=300,
+    color=palette(:BuGn), clims=(-level, level), linewidth=0,
+    aspect_ratio=:equal, legend=false, border=:none)
 
 function foil(L;d=0,Re=38e3,U=1,n=6,m=3)
 	# Define symmetric foil shape with cubic Bezier
@@ -38,13 +39,52 @@ function foil(L;d=0,Re=38e3,U=1,n=6,m=3)
     Simulation((n*L+2,m*L+2),[U,0],L;ν=U*L/Re,body=AutoBody(sdf,map))
 end
 
-sim = foil(128,d=0.06);
-sim_step!(sim,6,remeasure=true);
-plot_vorticity(sim)
-savefig("flow.png")
+filename(L,d,tail) = @sprintf "flow\\L%i_d%02i_%s" L 100d tail
 
-time = sim_time(sim)
-@gif for t ∈ time:1/24:(time+2-1/24)
-    sim_step!(sim,t,remeasure=true)
-    plot_vorticity(sim)
+function get_data(L,d;warmup=6::Int,collection=2::Int,dt=1/24,m=3)
+    # Define the simulation
+    println("Starting simulation:",filename(L,d,"dat"))
+    sim = foil(L;d,m)
+
+    # Run the warmup without saving
+    for t in 1:warmup
+        sim_step!(sim,t,remeasure=true);
+        println("warmup time:",t," out of ",warmup)  
+    end
+
+    # Save a plot 
+    get_omega!(sim)
+    plot_vorticity(sim.flow.σ,level=10)
+    savefig(filename(L,d,"dat.png"))
+
+    # Run data collection phase
+    data = mapreduce(hcat,(warmup+dt):dt:(warmup+collection)) do t
+        sim_step!(sim,t,remeasure=true)
+        println("collection time:",round(t,digits=2)," out of ",warmup+collection)
+        get_omega!(sim)
+        reshape(sim.flow.σ,(:))
+    end |> (x -> reshape(x,(:,m*L+2,Int(collection÷dt))))
+    h5write(filename(L,d,"dat.h5"), "group\\data", data)
+    plot_vorticity(data[:,:,end],level=10)
+end
+
+function get_POD(L,d;window=2L:5L,fname=filename(L,d,"pod.h5"))
+    # Get data from file
+    data = h5read(filename(L,d,"dat.h5"), "group\\data")
+    n = size(data)
+
+    # Take POD of windowed data
+    data = reshape(data[window,:,:],(:,n[3]))
+    res, singularvals = PODsvd!(data)
+    data = reshape(res.modes,(:,n[2],n[3]))
+
+    # (Over)Write to file
+    h5open(fname, "w") do fid
+        fid["group\\singularvals"] = singularvals
+        fid["group\\coefficients"] = res.coefficients
+        fid["group\\modes"] = data
+    end
+
+    # Return a plot of the first mode as a sanity check
+    plot_vorticity(data[:,:,1])
 end
