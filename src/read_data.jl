@@ -13,7 +13,7 @@ d(x) = x<0.3 ? 0 : (x-0.3)^2/0.7^2
 plot!(x, 0d.(x), label="d/L=0",ls=:dash)
 plot!(x, 0.06d.(x), label="d/L=0.06",ls=:dash)
 plot!(x, 0.12d.(x), label="d/L=0.12",ls=:dash)
-savefig("centerline with fit.png")
+savefig(".\\figures\\centerline with fit.png")
 
 file = CSV.File("data/Base Foil Section 0 bar.csv")
 x = filter(!ismissing,file["x centre line"])
@@ -30,4 +30,4 @@ A,B,C,D = P0,-3P0+3P1,3P0-6P1+3P2,-P0+3P1-3P2+P3
 curve(t) = A+B*t+C*t^2+D*t^3
 xy = curve.(0:0.01:1)
 plot!(first.(xy),last.(xy),label="cubic",ls=:dash)
-savefig("section shape.png")
+savefig(".\\figures\\section shape.png")
